@@ -1,0 +1,16 @@
+<package>
+  <description brief="laser_test">
+
+     laser_test
+
+  </description>
+  <author>rustam</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/laser_test</url>
+  <depend package="std_msgs"/>
+  <depend package="sicktoolbox_wrapper"/>
+  <depend package="roscpp"/>
+</package>
+
+

@@ -1,0 +1,31 @@
+roscd
+rosls
+rosfind
+
+rospack -- examinging packages
+rosstack -- examining stacks
+
+stacks just collections of packages that provide a complete services
+packages basic units for code reuse
+
+roscreate-pkg
+roscreate-stack
+
+rosdep -- install ros dependencies
+rosmake -- compile packages and stacks
+
+roscore -- initialise master service
+rosnode -- examine running nodes
+rosrun -- run your own packages and stacks
+
+rostopic examing published topics and publishing to them
+
+rosservice -- provides ability to call services and shows what args they need
+rosparam -- get and set params from main parameter service
+
+rxloggerlevel
+rxconsole -- examining logs
+
+rosbag -- recording running data and use to recreate in simulation
+
+roswtf -- useful for highlighting possible errors
