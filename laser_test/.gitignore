@@ -1,0 +1,8 @@
+Makefile
+CMakeCache.txt
+bin
+.cproject
+.project
+.pydevproject
+cmake_install.cmake
+CMakeFiles
