@@ -7,10 +7,11 @@
 
 #include "ScanData.h"
 
-ScanData::ScanData() : data() {
+ScanData::ScanData() {
 }
 
-ScanData::ScanData(size_t expected_data_count) : data(expected_data_count) {
+ScanData::ScanData(size_t expected_data_count) {
+    data.reserve(expected_data_count);
 }
 
 ScanData::~ScanData() {

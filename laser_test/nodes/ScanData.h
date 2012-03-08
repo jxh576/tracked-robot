@@ -39,16 +39,22 @@ public:
     uint8_t status_of_digital_inputs[2];
     uint8_t status_of_digital_outputs[2];
     uint16_t reserved_byte;
+    // frequency of scan in 100ths of Hz (eg. 2500 -> 25Hz)
     uint32_t scan_frequency;
+    // frequency of individual scan measurements in 100s of Hz (eg. 25 -> 2500Hz)
     uint32_t measurement_frequency;
     struct Encoder encoders;
     uint16_t amount_of_16_bit_channels;
     char content[6];
 
+    // either 1 or 2 -- for lms151 it is 1
     float scale_factor;
+    // always 0 for lms
     float scale_factor_offset;
 
+    // starting angle in 10,000th of degrees
     uint32_t start_angle;
+    // angular step in 10,000th of degrees
     uint16_t steps;
     uint16_t amount_of_data;
     // ranges in mm
