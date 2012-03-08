@@ -4,6 +4,8 @@
  * Modified by: Kasper Vinther
  * Modified by: Jack Hargreaves to work with ROS
  * Date: 24/02/2012
+ *
+ * WARNING: This driver only supports 18 hours of continuous operation before its timestamp roles over
  */
 
 #include <sys/socket.h>
@@ -16,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <vector>
 
 #include <boost/thread/mutex.hpp>
 
@@ -23,16 +26,6 @@
 #include "ScanData.h"
 #include "ScanDataBuilder.h"
 
-const int CMD_BUFFER_SIZE = 255;
-
-void printHex(unsigned char* buffer, int size) {
-    int i;
-    for (i = 0; i < size; ++i) {
-
-        printf("%02X ", buffer[i]);
-    }
-    printf("\n");
-}
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor.
 lms100_cola::lms100_cola(const char* host, size_t port, size_t debug_mode,
@@ -213,6 +206,7 @@ int lms100_cola::StartMeasurement(bool intensity) {
         n = read(sockfd, buffer, 3000);
     } while (buffer[10] != 55);
     ROS_INFO("LMS ready\n");
+    ROS_INFO("buffer contents: %s", buffer);
 
     // Start continous measurement value output
     int startmeasure = 1;
@@ -233,26 +227,41 @@ bool lms100_cola::ReadMeasurement(sensor_msgs::LaserScan& laser_scan) {
     if (!ReadFromQueueTo(scan_data)) {
         return false;
     }
-    //    laser_scan.ranges.push_back(i++);
 
-    // Currently min and max angle are hardcoded.
-    player_laser_config config;
-    config.min_angle = ((scan_data.start_angle / 10000.0) - 90.0); // -90.0
-    config.resolution = scan_data.steps / 10000.0;
-    config.max_angle = ((float) scan_data.amount_of_data - 1)
-            * Configuration.resolution + Configuration.min_angle; // 90.0
-    config.scanning_frequency = scan_data.scan_frequency / 100;
+    std::cout << "power up time: " << scan_data.time_since_startup << std::endl;
+    std::cout << "tranmission time: " << scan_data.time_of_transmission << std::endl;
 
-    laser_scan.angle_min = DTOR(config.min_angle);
-    laser_scan.angle_max = DTOR(config.max_angle);
-    laser_scan.angle_increment = DTOR (config.resolution);
-    laser_scan.range_max = 20; // TODO: check this is accurate
-    laser_scan.range_max = 0.5; // TODO: check this is accurate
+    laser_scan.header.seq = scan_data.scan_counter;
+    laser_scan.header.stamp = ros::Time(scan_data.time_since_startup / NANOSECONDS_IN_SECOND,
+                scan_data.time_since_startup % NANOSECONDS_IN_SECOND);
+    laser_scan.header.frame_id = 1; // TODO: I have no idea if this is right or not. Makes it part of global frame
 
-    laser_scan.time_increment = (0.0);
-    laser_scan.scan_time = (0.0);
+    float f = *((float*)(&scan_data.start_angle));
+    ROS_INFO("start angle: %i, start_angle as float: %f, steps: %i", scan_data.start_angle, f, scan_data.steps);
+
+    laser_scan.angle_increment = DTOR(scan_data.steps / 10000.f);
+    laser_scan.angle_min = DTOR(scan_data.start_angle / 10000.f); //DTOR(config.min_angle);
+    laser_scan.angle_max = laser_scan.angle_min + (laser_scan.angle_increment * (scan_data.amount_of_data - 1));
+
+    laser_scan.range_max = 50; // according to manual for lms 151
+    laser_scan.range_min = 0.5;
+
+    // manual states that measurement frequency is in units of 100ths of Hz
+    // eg. 2500 -> 25Hz
+    laser_scan.time_increment = 0.01f / scan_data.measurement_frequency;
+    // manual states that scan frequency is:
+    // "Frequency between two separate measurements in 100 Hz"
+    // eg. 2500 -> 25Hz (I hope)
+    laser_scan.scan_time = 100.f / scan_data.scan_frequency;
 
     laser_scan.ranges.reserve(scan_data.data.size());
+
+    for (std::vector<uint16_t>::iterator iter = scan_data.data.begin(),
+            end = scan_data.data.end(); iter != end; ++iter) {
+
+        // ignore scan_data.scale_factor as we expect to always be 1
+        laser_scan.ranges.push_back((*iter) * MM_TO_M_RATIO);
+    }
 
     return true;
 
@@ -302,19 +311,18 @@ bool lms100_cola::ReadFromQueueTo(ScanData& data) {
     if (MeasurementQueue.empty()) {
         return false;
     }
-    ROS_INFO("Reading from queue...");
     data = MeasurementQueue.front();
-    MeasurementQueue.pop();
+    MeasurementQueue.pop_front();
     return true;
 }
 
 bool lms100_cola::WriteToQueue(ScanData& element) {
     boost::mutex::scoped_lock lock(mutex);
     if (MeasurementQueue.size() == MAX_QUEUE_SIZE) {
-        ROS_INFO("queue full: dropped measurement");
-        return false;
+        // queue is filling up to quickly -- purge it
+        MeasurementQueue.clear();
     }
-    MeasurementQueue.push(element);
+    MeasurementQueue.push_back(element);
     return true;
 }
 
@@ -362,7 +370,7 @@ int lms100_cola::ReadResult() {
     n = read(sockfd, buffer, RECV_BUFFER_SIZE);
 
     if ((buffer[0] != 0x20))
-        ROS_INFO("Received: \"%s\"", buffer);
+        ROS_DEBUG("Received: \"%s\"", buffer);
 
     // Check for error
     if (strncmp((const char*) buffer, "sFA", 3) == 0) {
@@ -453,31 +461,32 @@ bool lms100_cola::ReadDataFromLaserScanner(ScanData& element) {
         Shutdown();
     }
 
-    ROS_INFO("reading from socket");
-
     ScanDataBuilder builder(expected_data_count);
 
     while (true) {
-
         int n = read(sockfd, buffer + bufferContents, RECV_BUFFER_SIZE
-                - bufferContents);
-        bufferContents = +n;
+                - bufferContents - 1);
+
+        bufferContents += n;
+        buffer[bufferContents] = '\0'; // null terminate buffer to prevent reading old content by accident
 
         char* temp_buf = buffer;
         size_t temp_size = bufferContents;
 
-        if (builder.Parse(temp_buf, temp_size)) {
-            break;
-        }
+        bool result = builder.Parse(temp_buf, temp_size);
 
+        // move remaining content to front of buffer
         memmove(buffer, temp_buf, temp_size);
         bufferContents = temp_size;
+        buffer[bufferContents] = '\0';
 
+        if (result) {
+            break;
+        }
     }
 
-    //memmove(buffer, buffer + (bufferContents - leftover), leftover);
-
     element = builder.GetData();
+
     return true;
 }
 
@@ -502,13 +511,13 @@ void lms100_cola::Run() {
 
     while (IsRunning()) {
         // if enough data to get a scan data response then add to queue
-        ROS_INFO("read data from scanner");
+//        ROS_INFO("\n\nread data from scanner");
         if (ReadDataFromLaserScanner(element)) {
             // append to queue
-            ROS_INFO("write data to queue");
+//            ROS_INFO("write data to queue");
             WriteToQueue(element);
         }
-        ROS_INFO("end of main loop");
+//        ROS_INFO("end of main loop");
     }
 
     ROS_DEBUG("low level thread finished");

@@ -333,6 +333,36 @@ nodes/ScanDataBuilder.s:
 	$(MAKE) -f CMakeFiles/laser_test.dir/build.make CMakeFiles/laser_test.dir/nodes/ScanDataBuilder.s
 .PHONY : nodes/ScanDataBuilder.s
 
+# target to build an object file
+nodes/lms151_cola.o:
+	$(MAKE) -f CMakeFiles/laser_test.dir/build.make CMakeFiles/laser_test.dir/nodes/lms151_cola.o
+.PHONY : nodes/lms151_cola.o
+
+# target to preprocess a source file
+nodes/lms151_cola.i:
+	$(MAKE) -f CMakeFiles/laser_test.dir/build.make CMakeFiles/laser_test.dir/nodes/lms151_cola.i
+.PHONY : nodes/lms151_cola.i
+
+# target to generate assembly for a file
+nodes/lms151_cola.s:
+	$(MAKE) -f CMakeFiles/laser_test.dir/build.make CMakeFiles/laser_test.dir/nodes/lms151_cola.s
+.PHONY : nodes/lms151_cola.s
+
+# target to build an object file
+nodes/lms151_node.o:
+	$(MAKE) -f CMakeFiles/laser_test.dir/build.make CMakeFiles/laser_test.dir/nodes/lms151_node.o
+.PHONY : nodes/lms151_node.o
+
+# target to preprocess a source file
+nodes/lms151_node.i:
+	$(MAKE) -f CMakeFiles/laser_test.dir/build.make CMakeFiles/laser_test.dir/nodes/lms151_node.i
+.PHONY : nodes/lms151_node.i
+
+# target to generate assembly for a file
+nodes/lms151_node.s:
+	$(MAKE) -f CMakeFiles/laser_test.dir/build.make CMakeFiles/laser_test.dir/nodes/lms151_node.s
+.PHONY : nodes/lms151_node.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -363,6 +393,12 @@ help:
 	@echo "... nodes/ScanDataBuilder.o"
 	@echo "... nodes/ScanDataBuilder.i"
 	@echo "... nodes/ScanDataBuilder.s"
+	@echo "... nodes/lms151_cola.o"
+	@echo "... nodes/lms151_cola.i"
+	@echo "... nodes/lms151_cola.s"
+	@echo "... nodes/lms151_node.o"
+	@echo "... nodes/lms151_node.i"
+	@echo "... nodes/lms151_node.s"
 .PHONY : help
 
 

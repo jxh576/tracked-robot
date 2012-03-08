@@ -66,9 +66,11 @@ typedef struct {
 class lms100_cola {
 public:
 
-    static const uint32_t MAX_QUEUE_SIZE = 60;
+    static const uint32_t MAX_QUEUE_SIZE = 2;
     static const char STX_BYTE = 0x02;
     static const char ETX_BYTE = 0x03;
+    static const float MM_TO_M_RATIO = 0.001f;
+    static const uint32_t NANOSECONDS_IN_SECOND = 1000000;
 
     lms100_cola(const char* host, size_t port, size_t debug_mode);
     lms100_cola(const char* host, size_t port, size_t debug_mode, size_t expected_data_count);
@@ -111,6 +113,7 @@ private:
 
     static const uint32_t RECV_BUFFER_SIZE = 4096;
     static const uint32_t SEND_BUFFER_SIZE = 1024;
+    static const int CMD_BUFFER_SIZE = 255;
 
     // the amount of data points expected in message from the laser scanner
     size_t expected_data_count;
@@ -139,7 +142,7 @@ private:
     // for sending:
     char command[SEND_BUFFER_SIZE];
     int commandlength;
-    std::queue<ScanData> MeasurementQueue;
+    std::deque<ScanData> MeasurementQueue;
 
     // used to indicate if the driver should continue running or shutdown
     bool running;
