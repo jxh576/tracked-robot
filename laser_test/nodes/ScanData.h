@@ -34,7 +34,9 @@ public:
     uint16_t device_status[2];
     uint16_t telegram_counter;
     uint16_t scan_counter;
+    // in nano seconds
     uint32_t time_since_startup;
+    // in nano seconds
     uint32_t time_of_transmission;
     uint8_t status_of_digital_inputs[2];
     uint8_t status_of_digital_outputs[2];
