@@ -20,18 +20,20 @@ public:
 
     // attempts to parse as much data as possible
     // returns true if the ScanData object is ready, false otherwise (ie builder needs more data)
-    // buffer and size are modified to reflect how much data was read
+    // buffer is changed to the first unused bit of data and size decreased by how much data was consumed
     bool Parse(char*& buffer, size_t& size);
     ScanData GetData();
 
+
 private:
 
-    char irrelevant_data[15];
-    size_t irrelevant_data_len;
+    static const char* irrelevant_data;
+    static const size_t irrelevant_data_len;
 
     ScanData data;
-    size_t method_index;
-
+public:
+    int32_t method_index;
+private:
     // returns the number of characters until the next space
     int32_t get_token_length(char* src, size_t src_size);
 
@@ -44,6 +46,8 @@ private:
     bool get_next_uint32(char*& src, size_t& src_size, uint32_t& i);
     bool get_next_uint64(char*& src, size_t& src_size, uint64_t& i);
     bool get_next_float(char*& src, size_t& src_size, float& f);
+
+    bool parse_byte(char*& buffer, size_t& size, char byte);
 
     bool parse_command_type(char*& buffer, size_t& size, ScanData& data);
     bool parse_command(char*& buffer, size_t& size, ScanData& data);
