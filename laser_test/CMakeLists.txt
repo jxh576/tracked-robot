@@ -21,10 +21,10 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #uncomment if you have defined services
 #rosbuild_gensrv()
 
-#rosbuild_add_executable(${PROJECT_NAME} nodes/lms151_node.cpp nodes/lms151_cola.cpp 
-#nodes/ScanData.cpp nodes/ScanDataBuilder.cpp)
+rosbuild_add_executable(${PROJECT_NAME} nodes/lms151_node.cpp nodes/lms151_cola.cpp 
+nodes/ScanData.cpp nodes/ScanDataBuilder.cpp)
 
-rosbuild_add_executable(${PROJECT_NAME} nodes/ScanData.cpp nodes/ScanDataBuilder.cpp)
+#rosbuild_add_executable(${PROJECT_NAME} nodes/ScanData.cpp nodes/ScanDataBuilder.cpp)
 
 
 #common commands for building c++ executables and libraries

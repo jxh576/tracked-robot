@@ -34,19 +34,16 @@ private:
 public:
     int32_t method_index;
 private:
-    // returns the number of characters until the next space
-    int32_t get_token_length(char* src, size_t src_size);
 
-    // these methods will attempt to parse the data from the buffer and
+    // this method will attempt to parse the data from the buffer and
     // advance the buffer if they succeed (returning true)
     // otherwise they will leave src alone and return false
+    template <class T>
+    bool get_next(char*& src, size_t& src_size, T& datum);
+    template <class T>
+    bool get_next_multiple_times(char*& src, size_t& src_size, T*& data, size_t data_size);
     bool get_next_string(char*& src, size_t& src_size, char* dest, size_t dest_size);
-    bool get_next_uint8(char*& src, size_t& src_size, uint8_t& i);
-    bool get_next_uint16(char*& src, size_t& src_size, uint16_t& i);
-    bool get_next_uint32(char*& src, size_t& src_size, uint32_t& i);
-    bool get_next_uint64(char*& src, size_t& src_size, uint64_t& i);
-    bool get_next_float(char*& src, size_t& src_size, float& f);
-
+    // will parse one byte, checking that it is the same as the byte parameter
     bool parse_byte(char*& buffer, size_t& size, char byte);
 
     bool parse_command_type(char*& buffer, size_t& size, ScanData& data);

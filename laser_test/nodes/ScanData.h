@@ -55,7 +55,7 @@ public:
     float scale_factor_offset;
 
     // starting angle in 10,000th of degrees
-    uint32_t start_angle;
+    int32_t start_angle;
     // angular step in 10,000th of degrees
     uint16_t steps;
     uint16_t amount_of_data;

@@ -18,6 +18,13 @@ const char* ScanDataBuilder::irrelevant_data = "0 0 0 0 0 0";
 
 const size_t ScanDataBuilder::irrelevant_data_len = strlen(ScanDataBuilder::irrelevant_data);
 
+#define GET_NEXT_COMPILE_TIME_ASSERT(predicate) \
+    typedef char __dummy[2*!!(predicate)-1]; // template class is too big! will cause unexpected results
+
+// note an array (var[]) must be used and not a pointer (*var)
+#define ARRAY_LENGTH(array) \
+        (sizeof(array) / sizeof(*array))
+
 ScanDataBuilder::ScanDataBuilder() :
         data(), method_index(-1) {
 }
@@ -31,6 +38,74 @@ ScanDataBuilder::~ScanDataBuilder() {
 
 ScanData ScanDataBuilder::GetData() {
     return this->data;
+}
+
+template <class T>
+bool ScanDataBuilder::get_next(char*& src, size_t& src_size, T& datum) {
+
+    GET_NEXT_COMPILE_TIME_ASSERT(sizeof(T) <= sizeof(uint64_t));
+
+    uint64_t as_unsigned_int;
+    char* token_end;
+    as_unsigned_int = strtoul(src, &token_end, 16);
+
+    if (*token_end != ' ') {
+        return false;
+    }
+
+//#ifndef NDEBUG
+//    // does not work as tokens do not represent leading 0 bits
+//    assert((token_end-src) / 2.0 == sizeof(T));
+//#endif
+
+    memcpy(&datum, &as_unsigned_int, sizeof(T));
+    src_size -= (token_end - src) + 1;
+    src = token_end + 1;
+    return true;
+}
+
+template <class T>
+bool ScanDataBuilder::get_next_multiple_times(char*& src, size_t& src_size, T*& data,
+            size_t data_size) {
+
+    char* original_src = src;
+    size_t original_src_size = src_size;
+
+    T temp_data[data_size];
+
+    for (size_t i = 0; i < data_size; ++i) {
+        if(!get_next<T>(src, src_size, temp_data[i])) {
+            src = original_src;
+            src_size = original_src_size;
+            return false;
+        }
+    }
+
+    memcpy(data, temp_data, data_size);
+    return true;
+}
+
+bool ScanDataBuilder::get_next_string(char*& src, size_t& src_size, char* dest,
+        size_t dest_size) {
+
+    char* token_end = (char*) memchr(src, ' ', src_size);
+
+    if (token_end == NULL) {
+        return false;
+    }
+
+    if ((token_end - src) >= dest_size) {
+        ROS_WARN("unexpected message format \"%s\"", src);
+        return false;
+    }
+
+    memcpy(dest, src, dest_size - 1);
+    dest[dest_size - 1] = '\0';
+
+    src_size -= (token_end - src) + 1;
+    src = token_end + 1;
+
+    return true;
 }
 
 bool ScanDataBuilder::parse_byte(char*& buffer, size_t& size, char byte) {
@@ -159,133 +234,73 @@ bool ScanDataBuilder::parse_command(char* &buffer, size_t& size, ScanData& data)
 
 bool ScanDataBuilder::parse_version_number(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint16(buffer, size, data.version_number);
+    return get_next<uint16_t>(buffer, size, data.version_number);
 }
 
 bool ScanDataBuilder::parse_device_number(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint16(buffer, size, data.device_number);
+    return get_next<uint16_t>(buffer, size, data.device_number);
 }
 
 bool ScanDataBuilder::parse_serial_number(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint32(buffer, size, data.serial_number);
+    return get_next<uint32_t>(buffer, size, data.serial_number);
 }
 
 bool ScanDataBuilder::parse_device_status(char*& buffer, size_t& size,
         ScanData& data) {
-
-    uint8_t first, second;
-    char* original_buffer = buffer;
-    size_t original_size = size;
-
-    bool could_parse_first = get_next_uint8(buffer, size, first);
-    if (!could_parse_first) {
-        buffer = original_buffer;
-        size = original_size;
-        return false;
-    }
-
-    bool could_parse_second = get_next_uint8(buffer, size, second);
-    if (!could_parse_second) {
-        buffer = original_buffer;
-        size = original_size;
-        return false;
-    }
-
-    data.device_status[0] = first;
-    data.device_status[1] = second;
-
-    return true;
+    uint16_t* temp = data.device_status;
+    return get_next_multiple_times<uint16_t> (buffer, size, temp,
+            ARRAY_LENGTH(data.device_status));
 }
 
 bool ScanDataBuilder::parse_telegram_counter(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint16(buffer, size, data.telegram_counter);
+    return get_next<uint16_t>(buffer, size, data.telegram_counter);
 
 }
 
 bool ScanDataBuilder::ScanDataBuilder::parse_scan_counter(char*& buffer,
         size_t& size, ScanData& data) {
-    return get_next_uint16(buffer, size, data.scan_counter);
+    return get_next<uint16_t>(buffer, size, data.scan_counter);
 }
 
 bool ScanDataBuilder::parse_time_since_startup(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint32(buffer, size, data.time_since_startup);
+    return get_next<uint32_t>(buffer, size, data.time_since_startup);
 }
 
 bool ScanDataBuilder::parse_time_of_transmission(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint32(buffer, size, data.time_of_transmission);
+    return get_next<uint32_t>(buffer, size, data.time_of_transmission);
 }
 
 bool ScanDataBuilder::parse_status_of_digital_inputs(char*& buffer,
         size_t& size, ScanData& data) {
-
-    uint8_t first, second;
-    char* original_buffer = buffer;
-    size_t original_size = size;
-
-    bool could_parse_first = get_next_uint8(buffer, size, first);
-    if (!could_parse_first) {
-        buffer = original_buffer;
-        size = original_size;
-        return false;
-    }
-
-    bool could_parse_second = get_next_uint8(buffer, size, second);
-    if (!could_parse_second) {
-        buffer = original_buffer;
-        size = original_size;
-        return false;
-    }
-
-    data.status_of_digital_inputs[0] = first;
-    data.status_of_digital_inputs[1] = second;
-
-    return true;
+    uint8_t* temp = data.status_of_digital_inputs;
+    return get_next_multiple_times<uint8_t> (buffer, size, temp,
+            ARRAY_LENGTH(data.status_of_digital_inputs));
 }
 
 bool ScanDataBuilder::parse_status_of_digital_outputs(char*& buffer,
         size_t& size, ScanData& data) {
-
-    uint8_t first, second;
-    char* original_buffer = buffer;
-    size_t original_size = size;
-
-    bool could_parse_first = get_next_uint8(buffer, size, first);
-    if (!could_parse_first) {
-        buffer = original_buffer;
-        size = original_size;
-        return false;
-    }
-
-    bool could_parse_second = get_next_uint8(buffer, size, second);
-    if (!could_parse_second) {
-        buffer = original_buffer;
-        size = original_size;
-        return false;
-    }
-
-    data.status_of_digital_outputs[0] = first;
-    data.status_of_digital_outputs[1] = second;
-
-    return true;
+    uint8_t* temp = data.status_of_digital_outputs;
+    return get_next_multiple_times<uint8_t> (buffer, size, temp,
+            ARRAY_LENGTH(data.status_of_digital_outputs));
 }
 
 bool ScanDataBuilder::parse_reserved_byte(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint16(buffer, size, data.reserved_byte);
+    return get_next<uint16_t>(buffer, size, data.reserved_byte);
 }
 
 bool ScanDataBuilder::parse_scan_frequency(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint32(buffer, size, data.scan_frequency);
+    return get_next<uint32_t>(buffer, size, data.scan_frequency);
 }
 bool ScanDataBuilder::parse_measurement_frequency(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint32(buffer, size, data.measurement_frequency);
+    return get_next<uint32_t>(buffer, size, data.measurement_frequency);
 }
 
 bool ScanDataBuilder::parse_encoders(char*& buffer, size_t& size,
@@ -296,7 +311,7 @@ bool ScanDataBuilder::parse_encoders(char*& buffer, size_t& size,
 
     struct Encoder encoder;
 
-    if (!get_next_uint16(buffer, size, encoder.amount_of_encoders)) {
+    if (!get_next<uint16_t>(buffer, size, encoder.amount_of_encoders)) {
         buffer = original_buffer;
         size = original_size;
         return false;
@@ -307,13 +322,13 @@ bool ScanDataBuilder::parse_encoders(char*& buffer, size_t& size,
         return true;
     }
 
-    if (!get_next_uint16(buffer, size, encoder.encoder_position)) {
+    if (!get_next<uint16_t>(buffer, size, encoder.encoder_position)) {
         buffer = original_buffer;
         size = original_size;
         return false;
     }
 
-    if (!get_next_uint16(buffer, size, encoder.encoder_speed)) {
+    if (!get_next<uint16_t>(buffer, size, encoder.encoder_speed)) {
         buffer = original_buffer;
         size = original_size;
         return false;
@@ -326,7 +341,7 @@ bool ScanDataBuilder::parse_encoders(char*& buffer, size_t& size,
 
 bool ScanDataBuilder::parse_amount_of_16_bit_channels(char*& buffer,
         size_t& size, ScanData& data) {
-    return get_next_uint16(buffer, size, data.amount_of_16_bit_channels);
+    return get_next<uint16_t>(buffer, size, data.amount_of_16_bit_channels);
 }
 
 bool ScanDataBuilder::parse_content(char*& buffer, size_t& size, ScanData& data) {
@@ -335,32 +350,32 @@ bool ScanDataBuilder::parse_content(char*& buffer, size_t& size, ScanData& data)
 
 bool ScanDataBuilder::parse_scale_factor(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_float(buffer, size, data.scale_factor);
+    return get_next<float>(buffer, size, data.scale_factor);
 }
 
 bool ScanDataBuilder::parse_scale_factor_offset(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_float(buffer, size, data.scale_factor_offset);
+    return get_next<float>(buffer, size, data.scale_factor_offset);
 }
 
 bool ScanDataBuilder::parse_start_angle(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint32(buffer, size, data.start_angle);
+    return get_next<int32_t>(buffer, size, data.start_angle);
 }
 
 bool ScanDataBuilder::parse_steps(char*& buffer, size_t& size, ScanData& data) {
-    return get_next_uint16(buffer, size, data.steps);
+    return get_next<uint16_t>(buffer, size, data.steps);
 }
 
 bool ScanDataBuilder::parse_amount_of_data(char*& buffer, size_t& size,
         ScanData& data) {
-    return get_next_uint16(buffer, size, data.amount_of_data);
+    return get_next<uint16_t>(buffer, size, data.amount_of_data);
 }
 
 bool ScanDataBuilder::parse_data(char*& buffer, size_t& size, ScanData& data) {
     while (data.data.size() < data.amount_of_data) {
         uint16_t datum;
-        if (!get_next_uint16(buffer, size, datum)) {
+        if (!get_next<uint16_t>(buffer, size, datum)) {
             return false;
         }
         data.data.push_back(datum);
@@ -376,99 +391,6 @@ bool ScanDataBuilder::parse_irrelevant_data(char*& buffer, size_t& size) {
         return true;
     }
     return false;
-}
-
-int32_t ScanDataBuilder::get_token_length(char* src, size_t src_size) {
-    char* token_end = (char*) memchr(src, ' ', src_size);
-    if (token_end == NULL) {
-        return -1;
-    }
-    return token_end - src;
-}
-
-bool ScanDataBuilder::get_next_string(char*& src, size_t& src_size, char* dest,
-        size_t dest_size) {
-
-    int32_t token_length = get_token_length(src, src_size);
-    if (token_length == -1) {
-        return false;
-    }
-
-    if (((size_t) token_length) >= dest_size) {
-        ROS_WARN("unexpected message format \"%s\"", src);
-        return false;
-    }
-
-    memcpy(dest, src, dest_size - 1);
-    dest[dest_size - 1] = '\0';
-
-    src += token_length + 1;
-    src_size -= token_length + 1;
-
-    return true;
-}
-
-bool ScanDataBuilder::get_next_uint8(char*& src, size_t& src_size, uint8_t& i) {
-    int32_t token_length = get_token_length(src, src_size);
-    if (token_length == -1) {
-        return false;
-    }
-    char* l_end;
-    i = strtol(src, &l_end, 16);
-    src += token_length + 1;
-    src_size -= token_length + 1;
-    return true;
-}
-bool ScanDataBuilder::get_next_uint16(char*& src, size_t& src_size, uint16_t& i) {
-    int32_t token_length = get_token_length(src, src_size);
-    if (token_length == -1) {
-        return false;
-    }
-    char* l_end;
-    i = strtol(src, &l_end, 16);
-    src += token_length + 1;
-    src_size -= token_length + 1;
-    return true;
-}
-
-bool ScanDataBuilder::get_next_uint32(char*& src, size_t& src_size, uint32_t& i) {
-    int32_t token_length = get_token_length(src, src_size);
-    if (token_length == -1) {
-        return false;
-    }
-    char* l_end;
-    i = strtol(src, &l_end, 16);
-    src += token_length + 1;
-    src_size -= token_length + 1;
-    return true;
-}
-
-bool ScanDataBuilder::get_next_uint64(char*& src, size_t& src_size, uint64_t& i) {
-    int32_t token_length = get_token_length(src, src_size);
-    if (token_length == -1) {
-        return false;
-    }
-    char* l_end;
-    i = strtol(src, &l_end, 16);
-    src += token_length + 1;
-    src_size -= token_length + 1;
-    return true;
-}
-
-bool ScanDataBuilder::get_next_float(char*& src, size_t& src_size, float& f) {
-
-    uint32_t raw_bytes;
-
-    if (!get_next_uint32(src, src_size, raw_bytes)) {
-        return false;
-    }
-
-//    void* as_void_ptr = &raw_bytes;
-    // return bytes as float rather than as an int
-    // NB. this is different to casting an int to a float
-    f = *((float*) &raw_bytes);
-
-    return true;
 }
 
 //int main() {
@@ -498,8 +420,31 @@ bool ScanDataBuilder::get_next_float(char*& src, size_t& src_size, float& f) {
 //        std::cout << "steps: " << data.steps << std::endl;
 //        std::cout << "amount of data: " << data.amount_of_data << std::endl;
 //    } else {
-//        std::cout << "error parsing data" << std::endl;
+//        std::cout << "error parsing data" << std::endl <<
+//                "method index: " << builder.method_index <<std::endl;
+//        std::cout << "src: " << temp_packet << std::endl;
 //    }
+//
+////    char src_data[] = "F F 3dcccccd ";
+////
+////    char* buffer = src_data;
+////    size_t remaining = strlen(buffer);
+////
+////    ScanDataBuilder builder;
+////
+////    uint8_t uint = 0;
+////    int8_t sint = 0;
+////    float f = 0;
+////
+////    builder.get_next<uint8_t>(buffer, remaining, uint);
+////    builder.get_next<int8_t>(buffer, remaining, sint);
+////    builder.get_next<float>(buffer, remaining, f);
+////
+////    printf("remaining is 0 -- %s\n", remaining == 0 ? "true" : "false");
+////    printf("buffer ptr is '\\0' -- %s\n", *buffer == '\0' ? "true" : "false");
+////    printf("uint = %u\n", uint);
+////    printf("sint = %i\n", sint);
+////    printf("f = %f\n", f);
 //
 //
 //    return 0;

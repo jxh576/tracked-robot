@@ -19,7 +19,6 @@
 
 #include <boost/thread/mutex.hpp>
 
-#include "player_laser_config.h" // TODO: remove dependency on player config
 #include "ScanData.h"
 #include "ScanDataBuilder.h"
 
@@ -38,29 +37,12 @@
 #define DTOR(d) ((d) * M_PI / 180)
 #endif
 
-////////////////////////////////////////////////////////////////////////////////
-typedef std::string MeasurementQueueElement_t;
-
-////////////////////////////////////////////////////////////////////////////////
-typedef struct {
-    uint8_t DeviceStatus;
-    uint16_t MessageCounter;
-    uint16_t ScanCounter;
-    uint32_t PowerUpDuration;
-    uint32_t TransmissionDuration;
-    uint16_t InputStatus;
-    uint16_t OutputStatus;
-    uint8_t ReservedByteA;
-    uint32_t ScanningFrequency;
-    uint32_t MeasurementFrequency;
-    uint8_t NumberEncoders;
-    uint8_t NumberChannels16bit;
-    uint32_t ScalingFactor;
-    uint32_t ScalingOffset;
-    int32_t StartingAngle;
-    uint16_t AngularStepWidth;
-    uint16_t NumberData;
-} MeasurementHeader_t;
+typedef struct lms151_cola_configuration {
+    /** Scan resolution [rad].  */
+    float resolution;
+    /** Scanning frequency [Hz] */
+    float scanning_frequency;
+} lms151_cola_configuration;
 
 ////////////////////////////////////////////////////////////////////////////////
 class lms100_cola {
@@ -100,7 +82,7 @@ public:
     // for "Procedures", Commands that reply with localBuffer, sizeof(localBuffer)a Confirmation message and an Answer message
     int ReadConfirmationAndAnswer();
 
-    player_laser_config GetConfiguration();
+    lms151_cola_configuration GetConfiguration();
 
     // main thread to run to get data
     void Run();
@@ -122,7 +104,6 @@ private:
 
     // assembles frame to be sent
     int assemblecommand(unsigned char* command, int len);
-    uint64_t message_cutter();
 
     const char* hostname;
     int sockfd, portno, n;
@@ -131,7 +112,7 @@ private:
 
     // Internal Parameters:
     int verbose;
-    player_laser_config Configuration;
+    lms151_cola_configuration configuration;
 
     // for reading:
     uint32_t bufferContents;

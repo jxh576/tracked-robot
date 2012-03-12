@@ -86,12 +86,8 @@ int lms100_cola::Disconnect() {
     return (close(sockfd));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Get the current laser unit configuration and return it into Player format
-player_laser_config lms100_cola::GetConfiguration() {
-    player_laser_config_t cfg;
-    cfg = Configuration;
-    return cfg;
+lms151_cola_configuration lms100_cola::GetConfiguration() {
+    return configuration;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -169,8 +165,8 @@ int lms100_cola::SetResolutionAndFrequency(float freq, float ang_res,
         if ((ErrorCode != 0) && (verbose))
             ROS_WARN("Warning: got an error code %d", ErrorCode);
 
-        memcpy(&Configuration.scanning_frequency, &sf, sizeof(uint32_t));
-        memcpy(&Configuration.resolution, &re, sizeof(uint32_t));
+        memcpy(&configuration.scanning_frequency, &sf, sizeof(uint32_t));
+        memcpy(&configuration.resolution, &re, sizeof(uint32_t));
 
         ROS_INFO("Measured value quality is: %ld [2500-5000]",
                 strtol (strtok (NULL, " "), NULL, 16));
@@ -221,26 +217,20 @@ int lms100_cola::StartMeasurement(bool intensity) {
 ////////////////////////////////////////////////////////////////////////////////
 // Read a measurement, returns true if there was a measurement to read
 bool lms100_cola::ReadMeasurement(sensor_msgs::LaserScan& laser_scan) {
-    // TODO: fix me! -- i do not add data to laser_scan
 
     ScanData scan_data;
     if (!ReadFromQueueTo(scan_data)) {
         return false;
     }
 
-    std::cout << "power up time: " << scan_data.time_since_startup << std::endl;
-    std::cout << "tranmission time: " << scan_data.time_of_transmission << std::endl;
-
     laser_scan.header.seq = scan_data.scan_counter;
     laser_scan.header.stamp = ros::Time(scan_data.time_since_startup / NANOSECONDS_IN_SECOND,
                 scan_data.time_since_startup % NANOSECONDS_IN_SECOND);
-    laser_scan.header.frame_id = 1; // TODO: I have no idea if this is right or not. Makes it part of global frame
-
-    float f = *((float*)(&scan_data.start_angle));
-    ROS_INFO("start angle: %i, start_angle as float: %f, steps: %i", scan_data.start_angle, f, scan_data.steps);
+    laser_scan.header.frame_id = 1;
+    // TODO: ^-- I have no idea if this is right or not. Makes it part of global frame
 
     laser_scan.angle_increment = DTOR(scan_data.steps / 10000.f);
-    laser_scan.angle_min = DTOR(scan_data.start_angle / 10000.f); //DTOR(config.min_angle);
+    laser_scan.angle_min = DTOR(scan_data.start_angle / 10000.f);
     laser_scan.angle_max = laser_scan.angle_min + (laser_scan.angle_increment * (scan_data.amount_of_data - 1));
 
     laser_scan.range_max = 50; // according to manual for lms 151
@@ -265,45 +255,6 @@ bool lms100_cola::ReadMeasurement(sensor_msgs::LaserScan& laser_scan) {
 
     return true;
 
-//    // copy range data from the buffer into player_data struct.
-//    // only values between 0 and 180 degrees are used
-//    // In player_data it is -90 to 90 since we scan in the x-direction
-//    // JWB 9/5/11 modified to return all readings
-//    if (Configuration.resolution == 0.5) {
-//        player_data.ranges_count = (meas_header.NumberData);
-//        player_data.ranges = new float[player_data.ranges_count];
-//        //   for (int i = 0; i < 90 ; i++){
-//        //     message_cutter ();
-//        //   }
-//        ROS_DEBUG("min angle: %f  max angle: %f resolution  %f Scale %u", player_data.min_angle , player_data.max_angle , Configuration.resolution, meas_header.ScalingFactor );
-//
-//        for (int i = 0; i < (meas_header.NumberData - 1); i++) {
-//            uint16_t val = message_cutter();
-//            player_data.ranges[i] = (((float) val) * mm_to_m);
-//            if (player_data.ranges[i] < 0) {
-//                ROS_WARN("[%i] dist: %f  measured %u scale %u ", i, player_data.ranges[i], val, meas_header.ScalingFactor );
-//            } else {
-//                ROS_DEBUG("[%i] dist: %f  measured %u scale %u ", i, player_data.ranges[i], val, meas_header.ScalingFactor );
-//            }
-//        }
-//    }
-//
-//    if (Configuration.resolution == 0.25) {
-//        player_data.ranges_count = (meas_header.NumberData - 361);
-//        player_data.ranges = new float[player_data.ranges_count];
-//        for (unsigned int i = 0; i < 180; i++) {
-//            message_cutter();
-//        }
-//        for (unsigned int i = 0; i < player_data.ranges_count; i++) {
-//            uint16_t val = message_cutter();
-//            player_data.ranges[i] = (((float) val) * mm_to_m);
-//
-//            ROS_DEBUG("[%i] dist: %f  measured %u scale %u", i, player_data.ranges[i], val, meas_header.ScalingFactor );
-//        }
-//    }
-//
-//    //return (player_data);
-//    return false;
 }
 
 bool lms100_cola::ReadFromQueueTo(ScanData& data) {
@@ -419,34 +370,6 @@ int lms100_cola::assemblecommand(unsigned char* cmd, int len) {
 
     commandlength = 2 + len;
     return commandlength;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Cuts out data from the buffer and converts from string to integer.
-uint64_t lms100_cola::message_cutter() {
-    uint8_t counter = 0;
-    uint64_t output = 0;
-
-    // Data is seperated with white space (hex 0x20 or decimal 32)
-    while (buffer[index_k] != 32) {
-        index_k += 1;
-        counter += 1;
-    }
-
-    // Create a string
-    char streng[counter + 1];
-    for (int i = 0; i < counter; i++) {
-        streng[i] = buffer[index_k - counter + i];
-    }
-    streng[counter] = '\0';
-
-    // Convert the string to an integer
-    output = (uint64_t) strtol(streng, NULL, 16);
-
-    // Increment index_k to point to the next data in the message
-    index_k += 1;
-
-    return output;
 }
 
 bool lms100_cola::ReadDataFromLaserScanner(ScanData& element) {

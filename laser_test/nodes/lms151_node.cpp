@@ -29,12 +29,6 @@ lms151_node::~lms151_node() {
 
 }
 
-//inline bool lms151_node::GetData(sensor_msgs::LaserScan& data) {
-//    return driver.ReadMeasurement(data);
-//}
-
-
-
 struct sigint_handler_data {
     lms100_cola* driver;
     boost::thread* driver_thread;
@@ -81,8 +75,8 @@ int main(int argv, char **argc) {
 
         if (driver.ReadMeasurement(data)) {
             if (!data.ranges.empty()) {
-                ROS_INFO("publishing scan %i from time %i",data.header.seq, data.header.stamp.sec);
-                ROS_INFO("start angle %f, end angle %f, increments %f", data.angle_min, data.angle_max, data.angle_increment);
+//                ROS_INFO("publishing scan %i from time %i",data.header.seq, data.header.stamp.sec);
+//                ROS_INFO("start angle %f, end angle %f, increments %f", data.angle_min, data.angle_max, data.angle_increment);
             }
             node.publisher.publish(data);
         }
