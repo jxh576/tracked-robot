@@ -22,7 +22,6 @@
 
 #include <boost/thread/mutex.hpp>
 
-#include "player_laser_data.h"
 #include "ScanData.h"
 #include "ScanDataBuilder.h"
 
